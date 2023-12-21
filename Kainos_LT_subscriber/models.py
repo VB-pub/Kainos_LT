@@ -1,9 +1,9 @@
 from enum import Enum
 from decimal import Decimal
 from abc import ABC
+from logger import Logger
 
 import uuid
-import traceback
 
 class ElementType(Enum):
     NONE = 0
@@ -18,7 +18,7 @@ class Element(ABC):
     items = []
         
     def __init__(self, type : ElementType, name: str, url : str) -> None:
-        self.Id = uuid.uuid5()
+        self.Id = uuid.uuid4()
         self.Type = type
         self.Name = name
         self.Url = url
@@ -44,11 +44,17 @@ class Category(Element):
     def __init__(self, name: str, url : str, quantity: int) -> None:
         super().__init__(ElementType.CATEGORY, name, url)
         self.Quantity = quantity
+        self.SubCategories = []
         self.Items = []
     
     def item_add(self, item : Item) -> None:
         self.Items.append(item)
         Logger.log_relationship(self, item)
+
+    def sub_category_add(self, category : 'Category') -> None:
+        self.SubCategories.append(category)
+        Logger.log_relationship(self, category)
+        
         
 class Shop(Element):
         
@@ -64,18 +70,4 @@ class Shop(Element):
     def items_add(self, item : Item) -> None:
         self.Items.append(item)
         Logger.log_relationship(self, item)
-        
-class Logger:
     
-    @staticmethod
-    def log_relationship(entity1 : Element, entity2 : Element) -> None:
-        print(f'{entity1.Name} pridėtas į {entity2.Name}')
-        
-    @staticmethod
-    def log_init(entity : Element) -> None:  
-        print(f'{entity.Id} sukurtas elementas {entity.Type}: {entity.Name}')
-        
-    @staticmethod
-    def log_error(entity : Element, ex : Exception) -> None:  
-        formatted_traceback = ''.join(traceback.format_exception(None, ex, ex.__traceback__))
-        print(f'ERROR: {entity.Name} {entity.Type}: {formatted_traceback}')

@@ -4,20 +4,96 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.remote.webelement import WebElement
+from selenium.common.exceptions import TimeoutException
+
+from logger import Logger
+from models import Category, Item, Shop
+from exceptions import CategoryNoUrlError
+
+import re
 
 class Scraper:
-        
+                
     def __init__(self, headless=True):
+        self.base_url = 'https://www.kainos.lt/'
         self.options = Options()
         if headless:
             self.options.add_argument('--headless=new')
         self.driver = webdriver.Chrome()
 
     def load_page(self):
-        self.driver.get('https://www.kainos.lt/')
+        self.driver.get(self.base_url)
 
     def close(self):
         self.driver.quit()
+
+    def get_category_elements(self) -> []:
+        try:
+            WebDriverWait(self.driver, timeout=5).until(
+                EC.presence_of_element_located((By.CLASS_NAME, 'title_categories'))
+            )
+            
+            elements = self.driver.find_element(By.CLASS_NAME, 'title_categories').find_elements(By.CLASS_NAME, 'tile')
+            
+            objs = []
+            for element in elements:
+                objs.append(self.create_category_obj(element))
+            
+            return objs
+        except TimeoutException as ex:
+            ex.msg = f"WARN: {self.driver.current_url} has no categories!"
+            Logger.log_error(None, ex)
+            return None
+                        
+
+    def create_category_obj(self, category : WebElement) -> Category:
+        name_n_count = category.find_element(By.CLASS_NAME, 'category_title').text.splitlines()
+        #BUG: kai nėra count crash
+        if (name_n_count.__len__() == 1):
+            name_n_count[1] = 0
+        
+        url = category.find_element(By.CLASS_NAME, 'title_category').get_attribute('href')
+        return Category(name_n_count[0], url, int(re.sub(r"[^\d]", "", name_n_count[1])))
+
+    def get_category_root(self) -> []:
+        try:      
+            
+            categories = self.get_category_elements()
+                  
+            if not categories:
+                raise RuntimeError("No categories found!")
+          
+            return categories
+        except BaseException as ex:
+            Logger.log_error(None, ex)
+            return None
+            
+
+    def try_get_category_recursive(self, parent : Category) -> bool:
+        try:
+            if not parent:
+                return False
+            
+            if not parent.Url:
+                raise CategoryNoUrlError(f"Category {parent.Name} doesn't have url!")
+            
+            self.driver.get(parent.Url)
+            
+            categories = self.get_category_elements()
+            
+            if not categories:
+                return False
+            
+            for category in categories:
+                self.try_get_category_recursive(category)
+            
+        except CategoryNoUrlError as ex:
+            Logger.log_error(None, ex)
+            return False
+        except BaseException as ex:
+            Logger.log_error(parent, ex)
+            return False
+        
 
     def item_search(self, q : str):
         try:
