@@ -29,7 +29,7 @@ class Scraper:
 
     def get_category_elements(self) -> []:
         try:
-            WebDriverWait(self.driver, timeout=5).until(
+            WebDriverWait(self.driver, timeout=1).until(
                 EC.presence_of_element_located((By.CLASS_NAME, 'title_categories'))
             )
             
@@ -40,18 +40,17 @@ class Scraper:
                 objs.append(self.create_category_obj(element))
             
             return objs
-        except TimeoutException as ex:
-            ex.msg = f"WARN: {self.driver.current_url} has no categories!"
-            Logger.log_error(None, ex)
+        except TimeoutException:
+            Logger.log_error(f'{self.driver.current_url}:Has no categories!')
             return None
                         
 
     def create_category_obj(self, category : WebElement) -> Category:
         name_n_count = category.find_element(By.CLASS_NAME, 'category_title').text.splitlines()
-        #BUG: kai nėra count crash
-        if (name_n_count.__len__() == 1):
-            name_n_count[1] = 0
-        
+
+        if len(name_n_count) == 1:
+            name_n_count.append("0")
+
         url = category.find_element(By.CLASS_NAME, 'title_category').get_attribute('href')
         return Category(name_n_count[0], url, int(re.sub(r"[^\d]", "", name_n_count[1])))
 
@@ -94,6 +93,20 @@ class Scraper:
             Logger.log_error(parent, ex)
             return False
         
+    def get_page_items(self, category : Category) -> []:
+        self.driver.get(category.Url)
+        
+        WebDriverWait(self.driver, timeout=1).until(
+            EC.presence_of_element_located((By.CLASS_NAME, 'results'))
+        )
+
+        item_list = self.driver.find_element(By.ID, 'results').find_elements(By.CLASS_NAME, 'product-tile-inner')
+
+        for item in item_list:
+            name = item.find_element(By.CLASS_NAME, 'title')
+            url = item.find_element(By.TAG_NAME, 'a').get_attribute('href')
+            price = 1
+            Item(name, url, price)
 
     def item_search(self, q : str):
         try:
