@@ -34,10 +34,9 @@ class Element(ABC):
 
 
 class Item(Element):
-    def __init__(self, name: str, url : str, price : Decimal, currency : str) -> None:
+    def __init__(self, name: str, url : str, price : Decimal) -> None:
         super().__init__(ElementType.ITEM, name, url)
         self.Price = price
-        self.Currency = currency
         
 class Category(Element):
         

@@ -4,7 +4,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.remote.webelement import WebElement
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 from logger import Logger
 from models import Category, Item, Shop
@@ -27,24 +27,54 @@ class Scraper:
     def close(self):
         self.driver.quit()
 
-    def get_category_elements(self) -> []:
+    def get_category_elements(self, parent : Category) -> []:
         try:
             WebDriverWait(self.driver, timeout=1).until(
                 EC.presence_of_element_located((By.CLASS_NAME, 'title_categories'))
             )
             
-            elements = self.driver.find_element(By.CLASS_NAME, 'title_categories').find_elements(By.CLASS_NAME, 'tile')
+            elements_holder = self.driver.find_elements(By.CLASS_NAME, 'title_categories')[-1:]
+            
+            if not elements_holder:
+                return []
+            
+            elements = elements_holder[0].find_elements(By.CLASS_NAME, 'tile')
             
             objs = []
-            for element in elements:
-                objs.append(self.create_category_obj(element))
+            for element in elements[1:]:
+                obj = self.create_category_obj(element)
+                if parent:
+                    parent.sub_category_add(obj)
+                objs.append(obj)
             
             return objs
         except TimeoutException:
-            Logger.log_error(f'{self.driver.current_url}:Has no categories!')
+            Logger.log_warning(f'{self.driver.current_url}:Has no categories!')
             return None
                         
 
+    def get_item_elements(self, category: Category) -> []:
+        try:
+            
+            WebDriverWait(self.driver, timeout=1).until(
+                EC.presence_of_element_located((By.ID, 'results'))
+            )
+
+            item_list = self.driver.find_element(By.ID, 'results').find_elements(By.CLASS_NAME, 'product-tile-inner')
+            
+            objs = []
+            for item in item_list:
+                obj = self.create_item_obj(item)
+                if category:
+                    category.item_add(obj)
+                objs.append(obj)
+                
+            return objs
+                
+        except TimeoutException:
+            Logger.log_warning(f'{self.driver.current_url}:Page has no items!')
+            return None
+    
     def create_category_obj(self, category : WebElement) -> Category:
         name_n_count = category.find_element(By.CLASS_NAME, 'category_title').text.splitlines()
 
@@ -54,10 +84,16 @@ class Scraper:
         url = category.find_element(By.CLASS_NAME, 'title_category').get_attribute('href')
         return Category(name_n_count[0], url, int(re.sub(r"[^\d]", "", name_n_count[1])))
 
+    def create_item_obj(self, item : WebElement) -> Item:
+            name = item.find_element(By.CLASS_NAME, 'title').text
+            url = item.find_element(By.TAG_NAME, 'a').get_attribute('href')
+            price = None
+            return Item(name, url, price)
+
     def get_category_root(self) -> []:
         try:      
             
-            categories = self.get_category_elements()
+            categories = self.get_category_elements(None)
                   
             if not categories:
                 raise RuntimeError("No categories found!")
@@ -77,14 +113,17 @@ class Scraper:
                 raise CategoryNoUrlError(f"Category {parent.Name} doesn't have url!")
             
             self.driver.get(parent.Url)
-            
-            categories = self.get_category_elements()
+                        
+            categories = self.get_category_elements(parent)
             
             if not categories:
+                self.get_page_items_root(parent)
                 return False
             
             for category in categories:
                 self.try_get_category_recursive(category)
+                
+            return True
             
         except CategoryNoUrlError as ex:
             Logger.log_error(None, ex)
@@ -93,39 +132,51 @@ class Scraper:
             Logger.log_error(parent, ex)
             return False
         
-    def get_page_items(self, category : Category) -> []:
-        self.driver.get(category.Url)
-        
-        WebDriverWait(self.driver, timeout=1).until(
-            EC.presence_of_element_located((By.CLASS_NAME, 'results'))
-        )
-
-        item_list = self.driver.find_element(By.ID, 'results').find_elements(By.CLASS_NAME, 'product-tile-inner')
-
-        for item in item_list:
-            name = item.find_element(By.CLASS_NAME, 'title')
-            url = item.find_element(By.TAG_NAME, 'a').get_attribute('href')
-            price = 1
-            Item(name, url, price)
-
-    def item_search(self, q : str):
+    def get_page_items_root(self, category : Category) -> []:
         try:
-            search_id = 'search_form'
-            
-            WebDriverWait(self.driver, timeout=5).until(
-                EC.presence_of_element_located((By.ID, search_id))
-            )
-            
-            search_element = self.driver.find_element(By.ID, search_id)
-            input_element = search_element.find_element(By.NAME, 'q')
-            submit_element = search_element.find_element(By.ID, 'header_search_button')
-            
-            input_element.clear()
-            input_element.send_keys(q)
-            submit_element.click()
-        except:
-            print('err')
+                        
+            self.driver.get(category.Url)
         
+            self.get_item_elements(category)
+            
+            paginatorNext = self.try_get_item_paginator()
+            self.try_get_page_items_recursive(category, paginatorNext)
+            
+        except BaseException as ex:
+            Logger.log_error(category, ex)
+            return None
+        
+    def try_get_page_items_recursive(self, category : Category, paginatorNext: str) -> bool:
+        try:
+            
+            if not paginatorNext:
+                raise CategoryNoUrlError(f"Category {category.Name} doesn't have next page!")
+        
+            self.driver.get(paginatorNext)
+            result = self.get_item_elements(category)
+        
+            if not result:
+                return False
+        
+            paginatorNext = self.try_get_item_paginator()
+            self.try_get_page_items_recursive(category, paginatorNext)      
+                
+            return True
+        
+        except CategoryNoUrlError as ex:
+            Logger.log_warning(ex.args[0])
+            return False
+        except BaseException as ex:
+            Logger.log_error(category, ex)
+            return False
+        
+    
+    def try_get_item_paginator(self) -> str:
+        try:
+            return self.driver.find_element(By.XPATH, '//link[contains(@rel, "next")]').get_attribute('href')
+        except NoSuchElementException:
+            return None
+    
     def cookie_trust_handle(self):
         try:
             WebDriverWait(self.driver, timeout=10).until(
@@ -138,33 +189,3 @@ class Scraper:
         except:
             print("No cookie trust element.")
     
-    def categories_load(self):
-        try:
-            category_list_class_toggle = 'category-filter-toggle'
-
-            WebDriverWait(self.driver, timeout=5).until(
-                EC.presence_of_element_located((By.XPATH, f"//a[contains(@class, '{category_list_class_toggle}')]"))
-            )
-
-            category_list_toggle_element = self.driver.find_element(By.XPATH, f"//a[contains(@class, '{category_list_class_toggle}')]")
-            category_list_toggle_element.click()
-
-            category_list_loaded = "loaded"
-
-            WebDriverWait(self.driver, timeout=5).until(
-                EC.presence_of_element_located((By.XPATH, f"//ul[contains(@class, '{category_list_loaded}')]"))
-            )
-
-            category_list_element = self.driver.find_element(By.XPATH, f"//ul[contains(@class, '{category_list_loaded}')]")
-            category_elements = category_list_element.find_elements(By.TAG_NAME, 'a')
-            self.categories.clear()
-            self.categories = category_elements
-        except:
-            print('err')
-            
-    def category_click(self, element : WebElement):
-        try:
-            element.click()
-            self.categories_load()
-        except:
-            print('err')
