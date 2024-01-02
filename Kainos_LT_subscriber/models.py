@@ -13,7 +13,6 @@ class ElementType(Enum):
 
 class Element(ABC):
     
-    shops = []
     categories = []
     items = []
         
@@ -23,20 +22,28 @@ class Element(ABC):
         self.Name = name
         self.Url = url
         
-        if type is ElementType.SHOP:
-            Element.shops.append(self)
-        elif type is ElementType.CATEGORY:
+        if type is ElementType.CATEGORY:
             Element.categories.append(self)
         elif type is ElementType.ITEM:
             Element.items.append(self)
         
         Logger.log_init(self)
 
+class Shop(Element):
+        
+    def __init__(self, name: str, url: str, price : Decimal) -> None:
+        super().__init__(ElementType.SHOP, name, url)
+        self.Price = price
 
 class Item(Element):
-    def __init__(self, name: str, url : str, price : Decimal) -> None:
+    def __init__(self, name: str, url : str) -> None:
         super().__init__(ElementType.ITEM, name, url)
-        self.Price = price
+        self.Shops = []
+        
+    def add_shop(self, shop : Shop):
+        self.Shops.append(shop)
+        Logger.log_relationship(self, shop)
+        
         
 class Category(Element):
         
@@ -54,19 +61,4 @@ class Category(Element):
         self.SubCategories.append(category)
         Logger.log_relationship(self, category)
         
-        
-class Shop(Element):
-        
-    def __init__(self, name: str, url: str) -> None:
-        super().__init__(ElementType.SHOP, name, url)
-        self.Items = []
-        self.Categories = []
-        
-    def categories_add(self, category : Category) -> None:
-        self.Categories.append(category)
-        Logger.log_relationship(self, category)
-    
-    def items_add(self, item : Item) -> None:
-        self.Items.append(item)
-        Logger.log_relationship(self, item)
     

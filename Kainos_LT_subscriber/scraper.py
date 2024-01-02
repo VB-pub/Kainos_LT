@@ -9,8 +9,10 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from logger import Logger
 from models import Category, Item, Shop
 from exceptions import CategoryNoUrlError
+from typing import List
 
 import re
+import threading
 
 class Scraper:
                 
@@ -75,6 +77,28 @@ class Scraper:
             Logger.log_warning(f'{self.driver.current_url}:Page has no items!')
             return None
     
+    def get_shop_elements(self, item: Item) -> []:
+        try:
+            
+            WebDriverWait(self.driver, timeout=1).until(
+                EC.presence_of_element_located((By.ID, 'prices-container'))
+            )
+
+            shop_list = self.driver.find_element(By.ID, 'prices-container').find_elements(By.CLASS_NAME, 'inner')
+            
+            objs = []
+            for shop in shop_list:
+                obj = self.create_shop_obj(item)
+                if shop:
+                    item.add_shop(obj)
+                objs.append(obj)
+                
+            return objs
+                
+        except TimeoutException:
+            Logger.log_warning(f'{self.driver.current_url}:Page has no items!')
+            return None
+    
     def create_category_obj(self, category : WebElement) -> Category:
         name_n_count = category.find_element(By.CLASS_NAME, 'category_title').text.splitlines()
 
@@ -85,10 +109,18 @@ class Scraper:
         return Category(name_n_count[0], url, int(re.sub(r"[^\d]", "", name_n_count[1])))
 
     def create_item_obj(self, item : WebElement) -> Item:
-            name = item.find_element(By.CLASS_NAME, 'title').text
-            url = item.find_element(By.TAG_NAME, 'a').get_attribute('href')
-            price = None
-            return Item(name, url, price)
+        name = item.find_element(By.CLASS_NAME, 'title').text
+        url = item.find_element(By.TAG_NAME, 'a').get_attribute('href')
+        return Item(name, url)
+        
+    def create_shop_obj(self, shop : WebElement) -> Shop:
+        
+        gaqPush_element = shop.find_element(By.CLASS_NAME, 'title-container').get_attribute('onClick')
+        name = re.search(r".*'([^']+)'", gaqPush_element.split(';')[0]).group(1) 
+        
+        price = shop.find_element(By.CLASS_NAME, 'price-container').text
+        url = name
+        return Shop(name, url, price)
 
     def get_category_root(self) -> []:
         try:      
@@ -132,12 +164,17 @@ class Scraper:
             Logger.log_error(parent, ex)
             return False
         
-    def get_page_items_root(self, category : Category) -> []:
+    def get_page_items_root(self, category : Category) -> List[Item]:
         try:
                         
             self.driver.get(category.Url)
         
-            self.get_item_elements(category)
+            items = self.get_item_elements(category)
+
+            for item in items:
+                #TODO: separate selenium driver; bugfix
+                thread = threading.Thread(target=self.get_shops, args=(item))
+                thread.start()
             
             paginatorNext = self.try_get_item_paginator()
             self.try_get_page_items_recursive(category, paginatorNext)
@@ -189,3 +226,13 @@ class Scraper:
         except:
             print("No cookie trust element.")
     
+    def get_shops(self, item : Item) -> []:
+        try:
+                        
+            self.driver.get(item.Url)
+        
+            self.get_shop_elements(item)
+            
+        except BaseException as ex:
+            Logger.log_error(item, ex)
+            return None
