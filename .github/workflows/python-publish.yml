@@ -18,6 +18,8 @@ jobs:
         uses: actions/setup-python@v3
         with:
           python-version: '3.x'
+      - name: List contents of the suspected directory
+        run: ls -la kainos_lt_scraper/
 
       - name: Install dependencies
         run: |
