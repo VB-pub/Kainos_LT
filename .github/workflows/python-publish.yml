@@ -23,11 +23,20 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install build
-        working-directory: ./kainos_lt_scraper 
+        working-directory: ./kainos_lt_scraper
+
+      # Diagnostic step to list the contents of the root directory
+      - name: List contents of the root directory
+        run: ls -la
+
+      # Diagnostic step to list the contents of the kainos_lt_scraper directory
+      - name: List contents of the kainos_lt_scraper directory
+        run: ls -la
+        working-directory: ./kainos_lt_scraper
 
       - name: Build package
         run: python -m build
-        working-directory: ./kainos_lt_scraper 
+        working-directory: ./kainos_lt_scraper
 
       - name: Publish package
         uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
