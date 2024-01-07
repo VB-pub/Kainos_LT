@@ -18,18 +18,16 @@ jobs:
         uses: actions/setup-python@v3
         with:
           python-version: '3.x'
-      - name: List contents of the suspected directory
-        run: ls -la kainos_lt_scraper/
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install build
-        working-directory: kainos_lt_scraper 
+        working-directory: ./kainos_lt_scraper 
 
       - name: Build package
         run: python -m build
-        working-directory: kainos_lt_scraper 
+        working-directory: ./kainos_lt_scraper 
 
       - name: Publish package
         uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
