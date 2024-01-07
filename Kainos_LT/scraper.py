@@ -8,7 +8,7 @@ from selenium.webdriver.remote.webelement import WebElement
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 #internal
-from typing import List
+from typing import List, Optional
 from threading import Thread
 
 import re, threading, uuid, time
@@ -20,8 +20,10 @@ from exceptions import CategoryNoUrlError
 from concurency import ItemWorker, Worker
 
 class Scraper:
-                
+    """A scraper class to navigate and extract data from a kainos.lt using Selenium."""  
+    
     def __init__(self, item_page_concurency = 1, max_concurency = 5, headless=True):
+        """Initialize the scraper with concurrency settings and headless option."""
         self.base_url = 'https://www.kainos.lt/'
         self.item_page_concurency = item_page_concurency
         self.max_concurency = max_concurency
@@ -35,7 +37,12 @@ class Scraper:
             self.options.add_argument(f'user-agent={user_agent}')
         self.driver = webdriver.Chrome(options=self.options)
 
-    def run(self, time_limit=60):
+    def run(self, time_limit=60) -> None:
+        """
+        Run the scraper for a given time limit.
+        
+        :param time_limit: The maximum time to run the scraper in seconds.
+        """
         self.load_page()
         self.cookie_trust_handle()
         root_categories = self.get_category_root()
@@ -58,18 +65,27 @@ class Scraper:
 
         timer.join()
             
-    def cancel(self):
+    def cancel(self) -> None:
+        """Signal the scraper to shut down at the next opportunity."""
         Worker.cancel_all()
         self.shut_down = True
         self.close()
 
-    def load_page(self):
+    def load_page(self) -> None:
+        """Load the base URL into the web driver."""
         self.driver.get(self.base_url)
 
-    def close(self):
+    def close(self) -> None:
+        """Close the Selenium web driver and all associated windows."""
         self.driver.quit()
 
-    def get_category_elements(self, parent : Category) -> []:
+    def get_category_elements(self, parent: Optional[Category]) -> Optional[List[Category]]:
+        """
+        Get category elements from a given parent category.
+        
+        :param parent: The parent category to search within.
+        :return: A list of Category objects or None.
+        """
         try:
             
             if self.shut_down:
@@ -99,7 +115,13 @@ class Scraper:
             return None
                         
 
-    def get_item_elements(self, category: Category) -> []:
+    def get_item_elements(self, category: Category) -> Optional[List[Item]]:
+        """
+        Extract item elements from the specified category's page.
+        
+        :param category: The category from which to extract items.
+        :return: A list of Item objects representing the extracted items.
+        """
         try:
             
             if self.shut_down:
@@ -124,7 +146,13 @@ class Scraper:
             Logger.log_warning(f'{self.driver.current_url}:Page has no items!')
             return None
     
-    def get_shop_elements(self, item: Item) -> []:
+    def get_shop_elements(self, item: Item) -> Optional[List[Shop]]:
+        """
+        Extract shop elements from the specified item's page.
+        
+        :param item: The item from which to extract associated shops.
+        :return: A list of Shop objects representing the extracted shops.
+        """
         try:
             
             WebDriverWait(self.driver, timeout=1).until(
@@ -148,7 +176,13 @@ class Scraper:
             Logger.log_warning(f'{self.driver.current_url}:Page has no items!')
             return None
     
-    def create_category_obj(self, category : WebElement) -> Category:
+    def create_category_obj(self, category: WebElement) -> Category:
+        """
+        Create a Category object from a WebElement representing a category.
+        
+        :param category: The WebElement representing a category.
+        :return: A Category object.
+        """
         name_n_count = category.find_element(By.CLASS_NAME, 'category_title').text.splitlines()
 
         if len(name_n_count) == 1:
@@ -157,12 +191,24 @@ class Scraper:
         url = category.find_element(By.CLASS_NAME, 'title_category').get_attribute('href')
         return Category(name_n_count[0], url, int(re.sub(r"[^\d]", "", name_n_count[1])))
 
-    def create_item_obj(self, item : WebElement) -> Item:
+    def create_item_obj(self, item: WebElement) -> Item:
+        """
+        Create an Item object from a WebElement representing an item.
+        
+        :param item: The WebElement representing an item.
+        :return: An Item object.
+        """
         name = item.find_element(By.CLASS_NAME, 'title').text
         url = item.find_element(By.TAG_NAME, 'a').get_attribute('href')
         return Item(name, url)
         
-    def create_shop_obj(self, shop : WebElement) -> Shop:
+    def create_shop_obj(self, shop: WebElement) -> Optional[Shop]:
+        """
+        Create a Shop object from a WebElement representing a shop.
+        
+        :param shop: The WebElement representing a shop.
+        :return: A Shop object or None if the shop couldn't be created.
+        """
                 
         gaqPush_element = shop.find_element(By.CLASS_NAME, 'title-container').find_element(By.TAG_NAME, 'a').get_attribute('onClick')
         
@@ -175,7 +221,12 @@ class Scraper:
         url = name
         return Shop(name, url, price)
 
-    def get_category_root(self) -> []:
+    def get_category_root(self) -> Optional[List[Category]]:
+        """
+        Get the root categories from the base page.
+        
+        :return: A list of root Category objects.
+        """
         try:      
             
             categories = self.get_category_elements(None)
@@ -189,7 +240,13 @@ class Scraper:
             return None
             
 
-    def try_get_category_recursive(self, parent : Category) -> bool:
+    def try_get_category_recursive(self, parent: Category) -> bool:
+        """
+        Attempt to recursively navigate and scrape categories starting from the parent.
+        
+        :param parent: The parent category from which to begin scraping.
+        :return: True if successful, False otherwise.
+        """
         try:
             
             if self.shut_down:
@@ -224,7 +281,13 @@ class Scraper:
             Logger.log_error(parent, ex)
             return False
         
-    def get_page_items_concurent(self, category : Category) -> List[Item]:
+    def get_page_items_concurent(self, category: Category) -> Optional[List[Item]]:
+        """
+        Extract items from the category's page using concurrent threads.
+        
+        :param category: The category from which to extract items.
+        :return: A list of extracted Item objects or None if the operation failed.
+        """
         try:
             if self.shut_down:
                 return None
@@ -244,7 +307,13 @@ class Scraper:
             Logger.log_error(category, ex)
             return None
         
-    def get_page_items_root(self, category : Category) -> List[Item]:
+    def get_page_items_root(self, category: Category) -> Optional[List[Item]]:
+        """
+        Extract items from the category's page without using concurrency.
+        
+        :param category: The category from which to extract items.
+        :return: A list of extracted Item objects or None if the operation failed.
+        """
         try:
             if self.shut_down:
                 return None      
@@ -266,7 +335,14 @@ class Scraper:
             Logger.log_error(category, ex)
             return None
         
-    def try_get_page_items_recursive(self, category : Category, paginatorNext: str) -> bool:
+    def try_get_page_items_recursive(self, category: Category, paginatorNext: str) -> bool:
+        """
+        Attempt to recursively navigate and scrape items from paginated pages.
+        
+        :param category: The category for which to scrape paginated items.
+        :param paginatorNext: The URL of the next page to scrape.
+        :return: True if successful, False otherwise.
+        """
         try:
             if self.shut_down:
                 return False
@@ -298,13 +374,21 @@ class Scraper:
             return False
         
     
-    def try_get_item_paginator(self) -> str:
+    def try_get_item_paginator(self) -> Optional[str]:
+        """
+        Attempt to find the URL for the next page of items.
+        
+        :return: The URL of the next page or None if not found.
+        """
         try:
             return self.driver.find_element(By.XPATH, '//link[contains(@rel, "next")]').get_attribute('href')
         except NoSuchElementException:
             return None
     
-    def cookie_trust_handle(self):
+    def cookie_trust_handle(self) -> None:
+        """
+        Attempt to handle and dismiss the cookie trust (consent) element.
+        """
         try:
             WebDriverWait(self.driver, timeout=10).until(
                 EC.presence_of_element_located((By.ID, "onetrust-button-group"))
@@ -316,7 +400,13 @@ class Scraper:
         except:
             print("No cookie trust element.")
     
-    def get_shops(self, item : Item) -> []:
+    def get_shops(self, item: Item) -> Optional[List[Shop]]:
+        """
+        Navigate to the item's page and extract associated shops.
+        
+        :param item: The item for which to extract associated shops.
+        :return: A list of Shop objects or None if the operation failed.
+        """
         try:                  
             self.driver.get(item.Url)
         

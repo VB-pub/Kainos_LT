@@ -1,24 +1,31 @@
 from models import Element
-from typing import List
+from typing import List, Union, Any, Optional
 from decimal import Decimal
 
-import json, uuid, os
+import json
+import uuid
+import os
 
 class Data2Json:
+    """A utility class for converting complex objects to JSON and saving them to disk."""
 
     @staticmethod
     def convert(objs: List[Element]) -> str:
-        def serialize_element(element):
-            # Convert special types to serializable forms
+        """
+        Convert a list of Element objects (or other supported types) to a JSON string.
+        
+        :param objs: A list of Element objects to be converted.
+        :return: A JSON string representation of the list.
+        """
+        def serialize_element(element: Any) -> Union[dict, list, str, float, None]:
+            """Recursively serialize an element to a JSON-compatible format."""
             if isinstance(element, uuid.UUID):
                 return str(element)
             if isinstance(element, Decimal):
                 return float(element)
             if isinstance(element, Element):
-                # Initialize an empty dictionary for the Element
-                result = {}
+                result: dict = {}
 
-                # Conditionally add each field only if it has meaningful data
                 if element.Id is not None:
                     result['Id'] = serialize_element(element.Id)
                 if element.Type is not None:
@@ -41,23 +48,25 @@ class Data2Json:
                 return result
 
             if isinstance(element, list):
-                # Convert lists recursively
                 return [serialize_element(sub_element) for sub_element in element]
-            
-            return element  # For all other types, return as is
 
-        # Convert each object in the list
-        serialized_objs = [serialize_element(obj) for obj in objs]
+            return element
+
+        serialized_objs: List[dict] = [serialize_element(obj) for obj in objs]
         
-        # Return as a JSON string
         return json.dumps(serialized_objs, indent=4)
 
     
     @staticmethod
-    def save_to_disk(json: str) -> None:
-        filename = 'data.json'
-        project_path = os.path.dirname(os.path.abspath(__file__))
-        file_path = os.path.join(project_path, filename)
+    def save_to_disk(json_str: str) -> None:
+        """
+        Save a JSON string to a file in the project's directory.
+        
+        :param json_str: The JSON string to be saved.
+        """
+        filename: str = 'data.json'
+        project_path: str = os.path.dirname(os.path.abspath(__file__))
+        file_path: str = os.path.join(project_path, filename)
 
         with open(file_path, 'w') as file:
-            file.write(json)
+            file.write(json_str)
