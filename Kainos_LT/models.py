@@ -5,6 +5,10 @@ from logger import Logger
 
 import uuid
 
+class ExportType(Enum):
+    JSON = 0
+    CONSOLE = 0
+
 class ElementType(Enum):
     NONE = 0
     CATEGORY = 1
