@@ -1,5 +1,8 @@
 # Kainos_LT
 
+### Aprašymas:
+Paketas skirtas duomenų gavybai iš kainos.lt tinklalapio.
+
 ### Reikalavimai sistemai:
 - Python 3.10 +
 - Selenium
