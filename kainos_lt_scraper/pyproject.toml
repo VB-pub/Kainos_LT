@@ -1,0 +1,17 @@
+[tool.poetry.scripts]
+run = 'kainos_lt_scraper.main:main'
+
+[tool.poetry]
+name = "kainos-lt-scraper"
+version = "1.0.0"
+description = ""
+authors = ["acad <acad@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

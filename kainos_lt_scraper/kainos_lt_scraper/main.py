@@ -1,6 +1,13 @@
 
-from scraper import Scraper
-import argparse, helpers, models
+import os
+
+print(f'Current Working Directory: {os.getcwd()}')
+print(f'Directory Contents: {os.listdir()}')
+
+from .scraper import Scraper
+from .helpers import Data2Json
+from .models import Element
+import argparse
 
 def main():
     parser = argparse.ArgumentParser(description='Run a web scraper with customizable options.')
@@ -12,8 +19,8 @@ def main():
     scraper = Scraper(item_page_concurency=args.thread_count, max_concurency=args.max_thread_count)
     scraper.run(time_limit=args.time_limit)
     
-    json_str = helpers.Data2Json.convert(models.Element.categories)
-    helpers.Data2Json.save_to_disk(json_str)
+    json_str = Data2Json.convert(Element.categories)
+    Data2Json.save_to_disk(json_str)
 
     print('OK')
 

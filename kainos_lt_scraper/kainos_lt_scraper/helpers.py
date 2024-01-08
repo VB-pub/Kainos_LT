@@ -1,4 +1,4 @@
-from models import Element
+from .models import Element
 from typing import List, Union, Any, Optional
 from decimal import Decimal
 

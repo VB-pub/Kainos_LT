@@ -14,10 +14,10 @@ from threading import Thread
 import re, threading, uuid, time
 
 #local
-from logger import Logger
-from models import Category, Item, Shop
-from exceptions import CategoryNoUrlError
-from concurency import ItemWorker, Worker
+from .logger import Logger
+from .models import Category, Item, Shop
+from .exceptions import CategoryNoUrlError
+from .concurency import ItemWorker, Worker
 
 class Scraper:
     """A scraper class to navigate and extract data from a kainos.lt using Selenium."""  

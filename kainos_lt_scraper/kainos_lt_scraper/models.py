@@ -2,7 +2,7 @@ from enum import Enum
 from decimal import Decimal
 from abc import ABC
 from typing import List, Type
-from logger import Logger
+from .logger import Logger
 import uuid
 
 class ExportType(Enum):
