@@ -39,5 +39,22 @@ python -m kainos_lt_scraper.main --time_limit 20
 
 - Rezultatas pasiekiamas `<python_dir>\site-packages\kainos_lt_scraper\data.json`
 
+# Struktūra
+
+- `kainos_lt_scraper/`: Pagrindinis aplankas.
+  - `__init__.py`: Paketo pagrindinis failas.
+  - `concurrency.py`: Gijų failas.
+  - `data.json`: Rezultato failas.
+  - `exceptions.py`: Klaidų failas.
+  - `helpers.py`: Pagalbinių funkcijų failas.
+  - `logger.py`: Log'inimo failas.
+  - `main.py`: Aplikacijos pagrindinis failas.
+  - `models.py`: Modelių failas.
+  - `scraper.py`: Pagrindinės logikos failas.
+  - `tests/`: Testų aplankas.
+    - `__init__.py`: Testų pagrindinis failas.
+    - `test_scraper.py`: Testų failas.
+
+
 # Licenzija
 MIT
